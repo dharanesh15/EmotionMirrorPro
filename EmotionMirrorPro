@@ -1,0 +1,63 @@
+import streamlit as st
+import cv2
+import numpy as np
+from tensorflow.keras.models import load_model
+
+# Load emotion detection model (Replace with your trained model path)
+MODEL_PATH = "emotion_model.h5"
+
+@st.cache_resource
+def load_emotion_model():
+    try:
+        model = load_model(MODEL_PATH)
+        return model
+    except:
+        st.error("⚠ Emotion model not found! Please upload `emotion_model.h5` to your project folder.")
+        return None
+
+model = load_emotion_model()
+
+# Emotion labels
+emotion_labels = ['Angry 😡', 'Disgust 🤢', 'Fear 😨', 'Happy 😀', 'Sad 😢', 'Surprise 😲', 'Neutral 😐']
+
+# Feedback messages
+feedback = {
+    'Angry 😡': "Take a deep breath. Stay calm. 🌿",
+    'Disgust 🤢': "Something bothering you? Let's change the vibe. 💫",
+    'Fear 😨': "It's okay to feel scared. You are safe here. 🤗",
+    'Happy 😀': "Keep smiling! You’re contagious! 🌞",
+    'Sad 😢': "Sending you virtual hugs. 💖",
+    'Surprise 😲': "Woah! Didn't expect that? 🎉",
+    'Neutral 😐': "You’re calm and steady. Keep it balanced. ⚖️"
+}
+
+# Streamlit page settings
+st.set_page_config(page_title="Emotion Mirror Pro+", layout="centered")
+st.title("🎭 Emotion Mirror Pro+")
+st.write("Real-time emotion detection with AI — works on mobile & desktop!")
+
+# Camera input
+img_file_buffer = st.camera_input("📸 Take a picture to detect your emotion")
+
+if img_file_buffer is not None and model is not None:
+    # Read image
+    file_bytes = np.asarray(bytearray(img_file_buffer.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, 1)
+
+    # Convert to grayscale & resize
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    resized = cv2.resize(gray, (48, 48))
+    img_array = np.expand_dims(resized, axis=-1)
+    img_array = np.expand_dims(img_array, axis=0) / 255.0
+
+    # Predict emotion
+    prediction = model.predict(img_array)[0]
+    emotion_idx = np.argmax(prediction)
+    detected_emotion = emotion_labels[emotion_idx]
+    probability = prediction[emotion_idx] * 100
+
+    # Display results
+    st.subheader(f"Detected Emotion: {detected_emotion}")
+    st.progress(int(probability))
+    st.write(f"**Confidence:** {probability:.2f}%")
+    st.info(feedback[detected_emotion])
